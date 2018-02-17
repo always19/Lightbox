@@ -22,15 +22,13 @@ open class LightboxController: UIViewController {
 
   lazy var scrollView: UIScrollView = { [unowned self] in
     let scrollView = UIScrollView()
-    scrollView.frame = self.screenBounds
     scrollView.isPagingEnabled = false
     scrollView.delegate = self
-    scrollView.isUserInteractionEnabled = true
     scrollView.showsHorizontalScrollIndicator = false
     scrollView.decelerationRate = UIScrollViewDecelerationRateFast
 
     return scrollView
-    }()
+  }()
 
   lazy var overlayTapGestureRecognizer: UITapGestureRecognizer = { [unowned self] in
     let gesture = UITapGestureRecognizer()
@@ -61,14 +59,14 @@ open class LightboxController: UIViewController {
     view.delegate = self
 
     return view
-    }()
+  }()
 
   open fileprivate(set) lazy var footerView: FooterView = { [unowned self] in
     let view = FooterView()
     view.delegate = self
 
     return view
-    }()
+  }()
 
   open fileprivate(set) lazy var overlayView: UIView = { [unowned self] in
     let view = UIView(frame: CGRect.zero)
@@ -131,7 +129,7 @@ open class LightboxController: UIViewController {
 
   open var spacing: CGFloat = 20 {
     didSet {
-      configureLayout()
+      configureLayout(view.bounds.size)
     }
   }
 
@@ -211,8 +209,30 @@ open class LightboxController: UIViewController {
     super.viewDidAppear(animated)
     if !presented {
       presented = true
-      configureLayout()
+      configureLayout(view.bounds.size)
     }
+  }
+
+  open override func viewDidLayoutSubviews() {
+    super.viewDidLayoutSubviews()
+
+    scrollView.frame = view.bounds
+    footerView.frame.size = CGSize(
+      width: view.bounds.width,
+      height: 100
+    )
+
+    footerView.frame.origin = CGPoint(
+      x: 0,
+      y: view.bounds.height - footerView.frame.height
+    )
+
+    headerView.frame = CGRect(
+      x: 0,
+      y: 16,
+      width: view.bounds.width,
+      height: 100
+    )
   }
 
   open override var prefersStatusBarHidden: Bool {
@@ -243,7 +263,7 @@ open class LightboxController: UIViewController {
       pageViews.append(pageView)
     }
 
-    configureLayout()
+    configureLayout(view.bounds.size)
   }
 
   // MARK: - Pagination
@@ -273,7 +293,7 @@ open class LightboxController: UIViewController {
 
   // MARK: - Actions
 
-  func overlayViewDidTap(_ tapGestureRecognizer: UITapGestureRecognizer) {
+  @objc func overlayViewDidTap(_ tapGestureRecognizer: UITapGestureRecognizer) {
     footerView.expand(false)
   }
 
@@ -302,17 +322,7 @@ open class LightboxController: UIViewController {
       }
     }
 
-    let bounds = scrollView.bounds
-    let headerViewHeight = headerView.closeButton.frame.height > headerView.deleteButton.frame.height
-      ? headerView.closeButton.frame.height
-      : headerView.deleteButton.frame.height
-
-    headerView.frame = CGRect(x: 0, y: 16, width: bounds.width, height: headerViewHeight)
-    footerView.frame = CGRect(x: 0, y: 0, width: bounds.width, height: 70)
-
     [headerView, footerView].forEach { ($0 as AnyObject).configureLayout() }
-
-    footerView.frame.origin.y = bounds.height - footerView.frame.height
 
     overlayView.frame = scrollView.frame
     overlayView.resizeGradientLayer()
@@ -362,7 +372,7 @@ extension LightboxController: UIScrollViewDelegate {
     }
 
     targetContentOffset.pointee.x = x
-    currentPage = Int(x / screenBounds.width)
+    currentPage = Int(x / pageWidth)
   }
 }
 
@@ -427,8 +437,8 @@ extension LightboxController: HeaderViewDelegate {
     self.pageViews.remove(at: prevIndex).removeFromSuperview()
 
     DispatchQueue.main.asyncAfter(deadline: DispatchTime.now() + 0.5) {
-      self.configureLayout()
-      self.currentPage = Int(self.scrollView.contentOffset.x / self.screenBounds.width)
+      self.configureLayout(self.view.bounds.size)
+      self.currentPage = Int(self.scrollView.contentOffset.x / self.view.bounds.width)
       deleteButton.isEnabled = true
     }
   }
@@ -446,8 +456,6 @@ extension LightboxController: HeaderViewDelegate {
 extension LightboxController: FooterViewDelegate {
 
   public func footerView(_ footerView: FooterView, didExpand expanded: Bool) {
-    footerView.frame.origin.y = screenBounds.height - footerView.frame.height
-
     UIView.animate(withDuration: 0.25, animations: {
       self.overlayView.alpha = expanded ? 1.0 : 0.0
       self.headerView.deleteButton.alpha = expanded ? 0.0 : 1.0
