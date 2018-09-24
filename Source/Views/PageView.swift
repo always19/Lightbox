@@ -38,6 +38,8 @@ class PageView: UIScrollView {
   var image: LightboxImage
   var contentFrame = CGRect.zero
   weak var pageViewDelegate: PageViewDelegate?
+    
+  private let doubleTapEnabled: Bool
 
   var hasZoomed: Bool {
     return zoomScale != 1.0
@@ -45,11 +47,12 @@ class PageView: UIScrollView {
 
   // MARK: - Initializers
 
-  init(image: LightboxImage) {
+  init(image: LightboxImage, doubleTapEnabled: Bool = true, minimumZoomScale: CGFloat = LightboxConfig.Zoom.minimumScale, maximumZoomScale: CGFloat = LightboxConfig.Zoom.maximumScale) {
     self.image = image
+    self.doubleTapEnabled = doubleTapEnabled
     super.init(frame: CGRect.zero)
 
-    configure()
+    configure(minimumZoomScale: minimumZoomScale, maximumZoomScale: maximumZoomScale)
 
     loadingIndicator.alpha = 1
     self.image.addImageTo(imageView) { [weak self] image in
@@ -73,7 +76,7 @@ class PageView: UIScrollView {
 
   // MARK: - Configuration
 
-  func configure() {
+  fileprivate func configure(minimumZoomScale: CGFloat, maximumZoomScale: CGFloat) {
     addSubview(imageView)
 
     if image.videoURL != nil {
@@ -84,20 +87,22 @@ class PageView: UIScrollView {
 
     delegate = self
     isMultipleTouchEnabled = true
-    minimumZoomScale = LightboxConfig.Zoom.minimumScale
-    maximumZoomScale = LightboxConfig.Zoom.maximumScale
+    self.minimumZoomScale = minimumZoomScale
+    self.maximumZoomScale = maximumZoomScale
     showsHorizontalScrollIndicator = false
     showsVerticalScrollIndicator = false
 
-    let doubleTapRecognizer = UITapGestureRecognizer(target: self, action: #selector(scrollViewDoubleTapped(_:)))
-    doubleTapRecognizer.numberOfTapsRequired = 2
-    doubleTapRecognizer.numberOfTouchesRequired = 1
-    addGestureRecognizer(doubleTapRecognizer)
-
     let tapRecognizer = UITapGestureRecognizer(target: self, action: #selector(viewTapped(_:)))
     addGestureRecognizer(tapRecognizer)
+    
+    if (doubleTapEnabled) {
+      let doubleTapRecognizer = UITapGestureRecognizer(target: self, action: #selector(scrollViewDoubleTapped(_:)))
+      doubleTapRecognizer.numberOfTapsRequired = 2
+      doubleTapRecognizer.numberOfTouchesRequired = 1
+      addGestureRecognizer(doubleTapRecognizer)
+      tapRecognizer.require(toFail: doubleTapRecognizer)
+    }
 
-    tapRecognizer.require(toFail: doubleTapRecognizer)
   }
 
   // MARK: - Recognizers

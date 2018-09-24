@@ -77,7 +77,15 @@ open class LightboxController: UIViewController {
     view.alpha = 0
 
     return view
-  }()
+    }()
+
+  private var viewSize: CGSize?
+  var screenBounds: CGRect { //TODO: screenBounds --> containerBounds
+    if let viewSize = viewSize {
+        return CGRect(x: 0, y: 0, width: viewSize.width, height: viewSize.height)
+    }
+    return UIApplication.shared.delegate?.window??.bounds ?? .zero
+  }
 
   // MARK: - Properties
 
@@ -139,6 +147,16 @@ open class LightboxController: UIViewController {
   open weak var imageTouchDelegate: LightboxControllerTouchDelegate?
   open internal(set) var presented = false
   open fileprivate(set) var seen = false
+    
+  //TODO: to be initial configurations. For now, followings are should be set initially.
+  open var headerViewHidden = false
+  open var footerViewHidden = false
+  open var doubleTapEnabled = true
+  open var toggleControlsEnabled = true
+  open var panGestureEnabled = true
+  open var minimumZoomScale: CGFloat?
+  open var maximumZoomScale: CGFloat?
+  open var backgroundColor: UIColor?
 
   lazy var transitionManager: LightboxTransition = LightboxTransition()
   var pageViews = [PageView]()
@@ -166,13 +184,20 @@ open class LightboxController: UIViewController {
 
     statusBarHidden = UIApplication.shared.isStatusBarHidden
 
-    view.backgroundColor = UIColor.black
+    view.backgroundColor = backgroundColor ?? UIColor.black
     transitionManager.lightboxController = self
     transitionManager.scrollView = scrollView
     transitioningDelegate = transitionManager
 
     [scrollView, overlayView, headerView, footerView].forEach { view.addSubview($0) }
     overlayView.addGestureRecognizer(overlayTapGestureRecognizer)
+    
+    if headerViewHidden {
+      headerView.isHidden = true
+    }
+    if footerViewHidden {
+      footerView.isHidden = true
+    }
 
     configurePages(initialImages)
     currentPage = initialPage
@@ -192,11 +217,14 @@ open class LightboxController: UIViewController {
     super.viewDidLayoutSubviews()
 
     scrollView.frame = view.bounds
-    footerView.frame = CGRect(
-      x: 0,
-      y: view.bounds.height - footerView.frame.height,
+    footerView.frame.size = CGSize(
       width: view.bounds.width,
       height: 100
+    )
+
+    footerView.frame.origin = CGPoint(
+      x: 0,
+      y: view.bounds.height - footerView.frame.height
     )
 
     headerView.frame = CGRect(
@@ -228,7 +256,7 @@ open class LightboxController: UIViewController {
     pageViews = []
 
     for image in images {
-      let pageView = PageView(image: image)
+        let pageView = PageView(image: image, doubleTapEnabled: doubleTapEnabled)
       pageView.pageViewDelegate = self
 
       scrollView.addSubview(pageView)
@@ -270,13 +298,19 @@ open class LightboxController: UIViewController {
   }
 
   // MARK: - Layout
-
+  open func configureLayout() {
+    configureLayout(self.viewSize ?? UIApplication.shared.delegate?.window??.bounds.size ?? .zero)
+  }
+    
   open func configureLayout(_ size: CGSize) {
     scrollView.frame.size = size
     scrollView.contentSize = CGSize(
       width: size.width * CGFloat(numberOfPages) + spacing * CGFloat(numberOfPages - 1),
       height: size.height)
     scrollView.contentOffset = CGPoint(x: CGFloat(currentPage) * (size.width + spacing), y: 0)
+    
+    self.viewSize = size
+    scrollView.bounds.size = size
 
     for (index, pageView) in pageViews.enumerated() {
       var frame = scrollView.bounds
@@ -300,6 +334,9 @@ open class LightboxController: UIViewController {
   }
 
   func toggleControls(pageView: PageView?, visible: Bool, duration: TimeInterval = 0.1, delay: TimeInterval = 0) {
+    if !toggleControlsEnabled {
+        return
+    }
     let alpha: CGFloat = visible ? 1.0 : 0.0
 
     pageView?.playButton.isHidden = !visible

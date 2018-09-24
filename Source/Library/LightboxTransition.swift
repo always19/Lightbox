@@ -17,7 +17,9 @@ class LightboxTransition: UIPercentDrivenInteractiveTransition {
   var scrollView: UIScrollView? {
     didSet {
       guard let scrollView = scrollView else { return }
-      scrollView.addGestureRecognizer(panGestureRecognizer)
+      if lightboxController?.panGestureEnabled ?? true {
+        scrollView.addGestureRecognizer(panGestureRecognizer)
+      }
     }
   }
 
